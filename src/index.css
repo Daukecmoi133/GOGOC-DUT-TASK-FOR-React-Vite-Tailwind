@@ -3,10 +3,23 @@
 
 :root {
   font-family: 'Inter', sans-serif;
-  color: #171717;
-  background: #F5F1EB;
+  background: var(--bg-primary);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
+  --bg-primary: #F5F1EB;
+  --bg-secondary: #FFFFFF;
+  --text-primary: #171717;
+  --text-secondary: #737373;
+  --border-primary: #D6D0C7;
+}
+
+:root[data-theme='dark'] {
+  --bg-primary: #171717;
+  --bg-secondary: #262626;
+  --text-primary: #F5F1EB;
+  --text-secondary: #A3A3A3;
+  --border-primary: #404040;
 }
 
 html {
@@ -17,8 +30,52 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s, color 0.3s;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4 {
   font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Ẩn thanh cuộn nhưng vẫn cho phép cuộn nội dung mượt mà */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important; /* IE và Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Toast animation */
+@keyframes shrinkBar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-bar {
+  animation: shrinkBar linear forwards;
+}
+
+@keyframes bounceSubtle {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-bounce-subtle {
+  animation: bounceSubtle 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

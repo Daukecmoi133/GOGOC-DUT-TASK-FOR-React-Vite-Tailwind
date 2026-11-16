@@ -1,206 +1,255 @@
-import { useEffect, useState } from 'react'
+import { useState, useMemo } from 'react'
 import projects from '../data/projects'
+import ProjectCard from '../components/ProjectCard'
+import ProjectModal from '../components/ProjectModal'
+import useDebounce from '../hooks/useDebounce'
 
-const categories = [
+const baseCategories = [
   'All',
   'Web Development',
   'UI/UX Design',
   'AI & Data',
 ]
 
-function Projects() {
-  const [activeCategory, setActiveCategory] = useState('All')
-  const [searchTerm, setSearchTerm] = useState('')
+export function Projects({
+  activeCategory = 'All',
+  onSelectCategory = () => {},
+  bookmarks = [],
+  isBookmarked = () => false,
+  onToggleBookmark = () => {},
+  onRequestQuote = () => {},
+}) {
+  const [searchInput, setSearchInput] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
 
-  // Kết hợp điều kiện category và search
-  const filteredProjects = projects.filter((project) => {
-    const matchesCategory =
-      activeCategory === 'All' ||
-      project.category === activeCategory
+  // Debounce giá trị tìm kiếm 250ms để tối ưu hiệu năng
+  const debouncedSearch = useDebounce(searchInput, 250)
 
-    const matchesSearch =
-      project.title.toLowerCase().includes(searchTerm.toLowerCase())
-
-    return matchesCategory && matchesSearch
-  })
-
-  // Xử lý phím Escape và khóa scroll khi modal mở
-  useEffect(() => {
-    if (!selectedProject) return
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setSelectedProject(null)
+  // Tính số lượng dự án theo từng danh mục
+  const categoryCounts = useMemo(() => {
+    const counts = {
+      All: projects.length,
+      Saved: bookmarks.length,
+    }
+    baseCategories.forEach((cat) => {
+      if (cat !== 'All') {
+        counts[cat] = projects.filter((p) => p.category === cat).length
       }
-    }
+    })
+    return counts
+  }, [bookmarks])
 
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', handleKeyDown)
+  // Lọc danh sách dự án với useMemo kết hợp Category, Bookmarks & Debounced Search
+  const filteredProjects = useMemo(() => {
+    const term = debouncedSearch.trim().toLowerCase()
 
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [selectedProject])
+    return projects.filter((project) => {
+      // Điều kiện lọc theo Category hoặc Bookmarks
+      let matchesCategory = false
+      if (activeCategory === 'All') {
+        matchesCategory = true
+      } else if (activeCategory === 'Saved') {
+        matchesCategory = bookmarks.includes(project.id)
+      } else {
+        matchesCategory = project.category === activeCategory
+      }
+
+      // Điều kiện tìm kiếm thông minh: title, description, category, tags
+      const matchesSearch =
+        term === '' ||
+        project.title.toLowerCase().includes(term) ||
+        project.description.toLowerCase().includes(term) ||
+        project.category.toLowerCase().includes(term) ||
+        project.tags.some((tag) => tag.toLowerCase().includes(term))
+
+      return matchesCategory && matchesSearch
+    })
+  }, [activeCategory, debouncedSearch, bookmarks])
+
+  const clearFilters = () => {
+    onSelectCategory('All')
+    setSearchInput('')
+  }
+
+  const isSearching = searchInput !== debouncedSearch
 
   return (
-    <section id="projects" className="bg-[#171717] px-6 py-28 text-white">
+    <section id="projects" className="bg-[#171717] px-6 py-28 text-white transition-colors">
       <div className="mx-auto max-w-7xl">
+        {/* Section Header */}
         <div className="mb-14">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-[#FF6B35]">
-            Selected Works
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-[#FF6B35]">
+                Selected Works
+              </p>
+              <h2 className="text-5xl font-bold tracking-tight md:text-7xl">
+                OUR PROJECTS<span className="text-[#FF6B35]">.</span>
+              </h2>
+            </div>
 
-          <h2 className="text-5xl font-bold tracking-tight md:text-7xl">
-            OUR PROJECTS<span className="text-[#FF6B35]">.</span>
-          </h2>
+            {/* Quick stats / Saved note */}
+            {bookmarks.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onSelectCategory('Saved')}
+                className="flex items-center gap-2 rounded-full border border-[#FF6B35]/40 bg-[#FF6B35]/10 px-4 py-2 text-xs font-semibold text-[#FF6B35] transition hover:bg-[#FF6B35] hover:text-white"
+              >
+                <span>❤️</span>
+                <span>You have {bookmarks.length} bookmarked project(s)</span>
+              </button>
+            )}
+          </div>
 
           <p className="mt-5 max-w-md text-white/50">
-            A selection of creative concepts and digital experiences.
+            A curated selection of high-impact digital experiences, web apps, and brand solutions.
           </p>
         </div>
 
-        {/* Search */}
-        <div className="mb-8">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search projects..."
-            className="w-full border-b border-white/30 bg-transparent px-2 py-4 text-white outline-none transition-colors placeholder:text-white/40 focus:border-[#FF6B35]"
-          />
+        {/* Search Bar with Debounce indicator & Clear button */}
+        <div className="relative mb-8">
+          <div className="relative flex items-center">
+            <span className="absolute left-3 text-white/40">
+              {isSearching ? (
+                <span className="inline-block animate-spin text-[#FF6B35]">⟳</span>
+              ) : (
+                '🔍'
+              )}
+            </span>
+
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search projects by title, tech stack (#React, #Python), or category..."
+              className="w-full rounded-xl border border-white/20 bg-white/5 py-4 pl-11 pr-12 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-[#FF6B35] focus:bg-white/[0.08]"
+            />
+
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput('')}
+                className="absolute right-4 text-xs font-bold text-white/50 hover:text-white"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Category filters */}
-        <div className="mb-12 flex flex-wrap gap-3">
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              className={`rounded-full border px-5 py-2 text-sm transition-colors ${
-                activeCategory === category
-                  ? 'border-[#FF6B35] bg-[#FF6B35] text-white'
-                  : 'border-white/30 text-white/70 hover:border-[#FF6B35] hover:text-[#FF6B35]'
+        {/* Filter Tabs with Badges */}
+        <div className="mb-8 flex flex-wrap gap-2.5">
+          {baseCategories.map((category) => {
+            const count = categoryCounts[category] || 0
+            const isActive = activeCategory === category
+
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => onSelectCategory(category)}
+                className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all ${
+                  isActive
+                    ? 'border-[#FF6B35] bg-[#FF6B35] text-white shadow-sm'
+                    : 'border-white/20 text-white/70 hover:border-white/40 hover:text-white'
+                }`}
+              >
+                <span>{category}</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] ${
+                    isActive ? 'bg-black/30 text-white' : 'bg-white/10 text-white/60'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+
+          {/* Tab Saved (Bookmarks) */}
+          <button
+            type="button"
+            onClick={() => onSelectCategory('Saved')}
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all ${
+              activeCategory === 'Saved'
+                ? 'border-[#FF6B35] bg-[#FF6B35] text-white shadow-sm'
+                : 'border-white/20 text-white/70 hover:border-[#FF6B35] hover:text-[#FF6B35]'
+            }`}
+          >
+            <span>❤️ Saved</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] ${
+                activeCategory === 'Saved'
+                  ? 'bg-black/30 text-white'
+                  : 'bg-white/10 text-white/60'
               }`}
             >
-              {category}
-            </button>
-          ))}
+              {bookmarks.length}
+            </span>
+          </button>
         </div>
 
-        <p className="mb-6 text-sm text-white/50">
-          Showing {filteredProjects.length} projects
-        </p>
+        {/* Counter feedback */}
+        <div className="mb-6 flex items-center justify-between text-xs text-white/50">
+          <span>
+            Showing <strong className="text-white">{filteredProjects.length}</strong> of{' '}
+            {projects.length} projects
+            {debouncedSearch && ` matching "${debouncedSearch}"`}
+          </span>
 
-        {/* Project cards */}
+          {(searchInput || activeCategory !== 'All') && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-[#FF6B35] underline-offset-4 hover:underline"
+            >
+              Reset filters
+            </button>
+          )}
+        </div>
+
+        {/* Project Cards Grid */}
         {filteredProjects.length > 0 ? (
-          <div className="grid gap-8 md:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredProjects.map((project) => (
-              <button
+              <ProjectCard
                 key={project.id}
-                type="button"
-                onClick={() => setSelectedProject(project)}
-                className="group text-left"
-              >
-                <div className="aspect-[16/10] overflow-hidden bg-white/10">
-                  <img
-                    src={project.image}
-                    alt={project.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-
-                <div className="flex items-start justify-between gap-4 pt-5">
-                  <div>
-                    <p className="mb-2 text-xs uppercase tracking-widest text-[#FF6B35]">
-                      {project.category}
-                    </p>
-
-                    <h3 className="text-2xl font-bold">
-                      {project.title}
-                    </h3>
-                  </div>
-
-                  <span className="text-2xl transition-transform group-hover:-translate-y-1 group-hover:translate-x-1">
-                    ↗
-                  </span>
-                </div>
-              </button>
+                project={project}
+                onSelect={() => setSelectedProject(project)}
+                isBookmarked={isBookmarked(project.id)}
+                onToggleBookmark={onToggleBookmark}
+              />
             ))}
           </div>
         ) : (
-          <div className="py-20 text-center">
-            <p className="text-xl font-semibold">No projects found.</p>
+          <div className="rounded-2xl border border-dashed border-white/20 py-20 text-center">
+            <span className="text-4xl">📂</span>
+            <p className="mt-4 text-xl font-bold">No projects matched your criteria.</p>
             <p className="mt-2 text-sm text-white/50">
-              Try another keyword or category.
+              {activeCategory === 'Saved'
+                ? "You haven't bookmarked any projects yet. Click the heart icon on any project to save it here!"
+                : 'Try adjusting your search terms or selecting another category.'}
             </p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-6 rounded-full bg-[#FF6B35] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white hover:text-black"
+            >
+              Show All Projects
+            </button>
           </div>
         )}
       </div>
 
-      {/* Project detail modal */}
-      {selectedProject && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Backdrop là button thật để bấm ra ngoài thì đóng modal */}
-          <button
-            type="button"
-            aria-label="Close modal backdrop"
-            onClick={() => setSelectedProject(null)}
-            className="fixed inset-0 h-full w-full cursor-default border-none bg-black/80"
-          />
-
-          {/* Thẻ <dialog open> chuẩn HTML5 thay cho role="dialog" */}
-          <dialog
-            open
-            aria-labelledby="project-modal-title"
-            className="relative z-10 m-0 max-h-[90vh] w-full max-w-2xl overflow-y-auto border-none bg-[#F5F1EB] p-6 text-[#171717] md:p-10"
-          >
-            <button
-              type="button"
-              onClick={() => setSelectedProject(null)}
-              aria-label="Close project details"
-              className="absolute right-5 top-5 text-2xl hover:text-[#FF6B35]"
-            >
-              ×
-            </button>
-
-            <img
-              src={selectedProject.image}
-              alt={selectedProject.title}
-              className="mb-8 aspect-video w-full object-cover"
-            />
-
-            <p className="text-sm font-semibold uppercase tracking-widest text-[#FF6B35]">
-              {selectedProject.category} · {selectedProject.year}
-            </p>
-
-            <h3
-              id="project-modal-title"
-              className="mt-3 text-3xl font-bold md:text-4xl"
-            >
-              {selectedProject.title}
-            </h3>
-
-            <p className="mt-5 leading-relaxed text-[#737373]">
-              {selectedProject.description}
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-2">
-              {selectedProject.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-[#D6D0C7] px-4 py-2 text-sm"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </dialog>
-        </div>
-      )}
+      {/* Project Detail Modal */}
+      <ProjectModal
+        project={selectedProject}
+        onClose={() => setSelectedProject(null)}
+        isBookmarked={selectedProject ? isBookmarked(selectedProject.id) : false}
+        onToggleBookmark={onToggleBookmark}
+        onRequestQuote={onRequestQuote}
+      />
     </section>
   )
 }
