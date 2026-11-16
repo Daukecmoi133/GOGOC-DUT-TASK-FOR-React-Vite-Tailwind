@@ -1,7 +1,7 @@
 # NEXA DIGITAL — Creative Tech & Digital Agency
 
 > Website landing page cao cấp dành cho Digital Agency giả lập chuyên cung cấp giải pháp thiết kế UI/UX, phát triển sản phẩm số (Web & Mobile MVP) và tích hợp AI/Dữ liệu cho startup và doanh nghiệp.
-
+## Link demo: https://daukecmoi133.github.io/GOGOC-DUT-TASK-FOR-React-Vite-Tailwind/
 ---
 
 ## 📋 TỔNG QUAN DỰ ÁN (PROJECT OVERVIEW)
